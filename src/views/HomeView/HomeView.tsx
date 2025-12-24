@@ -43,12 +43,17 @@ const ui = {
 const Page = styled(Inview)`
   display: flex;
   flex-direction: column;
-  gap: ${rm(32)};
-  padding: ${rm(40)} ${rm(18)} ${rm(64)};
+  gap: ${rm(24)};
+  padding: ${rm(32)} ${rm(20)} ${rm(48)};
   ${minHeightLvh(120)};
   background: radial-gradient(circle at 15% 20%, rgba(63, 124, 255, 0.12), transparent 25%),
     radial-gradient(circle at 80% 0%, rgba(25, 169, 116, 0.12), transparent 30%),
     ${ui.bg};
+  
+  @media (max-width: 768px) {
+    padding: ${rm(24)} ${rm(16)} ${rm(40)};
+    gap: ${rm(20)};
+  }
 `;
 
 const Hero = styled.div`
@@ -90,16 +95,26 @@ const Grid = styled.div`
   width: min(1200px, 100%);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(${rm(280)}, 1fr));
-  gap: ${rm(16)};
+  grid-template-columns: repeat(auto-fit, minmax(${rm(300)}, 1fr));
+  gap: ${rm(20)};
+  
+  @media (max-width: 768px) {
+    gap: ${rm(16)};
+    grid-template-columns: 1fr;
+  }
 `;
 
 const Card = styled.div`
   background: ${ui.card};
   border: 1px solid ${ui.cardBorder};
-  border-radius: ${rm(16)};
-  padding: ${rm(18)};
+  border-radius: ${rm(18)};
+  padding: ${rm(24)};
   box-shadow: 0 ${rm(12)} ${rm(32)} rgba(52, 63, 91, 0.12);
+  
+  @media (max-width: 768px) {
+    padding: ${rm(20)};
+    border-radius: ${rm(16)};
+  }
 `;
 
 const TitleRow = styled.div`
@@ -221,6 +236,48 @@ const List = styled.div`
   gap: ${rm(10)};
 `;
 
+const ScrollableList = styled(List)`
+  max-height: ${rm(400)};
+  overflow-y: auto;
+  padding-right: ${rm(4)};
+  overscroll-behavior: contain;
+  
+  &::-webkit-scrollbar {
+    width: ${rm(6)};
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${ui.cardBorder};
+    border-radius: ${rm(3)};
+    
+    &:hover {
+      background: ${ui.muted};
+    }
+  }
+  
+  ${Card} {
+    padding: ${rm(14)} ${rm(16)};
+    margin-bottom: ${rm(8)};
+    border-radius: ${rm(12)};
+    box-shadow: 0 ${rm(2)} ${rm(8)} rgba(52, 63, 91, 0.06);
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+`;
+
+const BalanceText = styled.div<{ $positive: boolean }>`
+  font-size: ${rm(32)};
+  font-weight: 700;
+  color: ${({ $positive }) => ($positive ? ui.success : ui.danger)};
+  line-height: 1.2;
+`;
+
 const Pill = styled.span`
   display: inline-flex;
   align-items: center;
@@ -245,6 +302,145 @@ const Message = styled.div<{ $tone?: "info" | "error" }>`
   color: ${ui.text};
   border-radius: ${rm(14)};
   padding: ${rm(14)};
+`;
+
+const ToastContainer = styled.div`
+  position: fixed;
+  top: ${rm(20)};
+  right: ${rm(20)};
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: ${rm(12)};
+  pointer-events: none;
+  
+  @media (max-width: 768px) {
+    top: ${rm(16)};
+    right: ${rm(16)};
+    left: ${rm(16)};
+  }
+`;
+
+const Toast = styled.div<{ $type?: "success" | "error" | "info" }>`
+  background: ${({ $type }) => 
+    $type === "error" 
+      ? `linear-gradient(135deg, ${ui.danger}, #e55a5a)`
+      : $type === "success"
+      ? `linear-gradient(135deg, ${ui.success}, #1fb87a)`
+      : `linear-gradient(135deg, ${ui.accent}, #5a8eff)`};
+  color: #fff;
+  padding: ${rm(14)} ${rm(18)};
+  border-radius: ${rm(14)};
+  box-shadow: 0 ${rm(8)} ${rm(24)} rgba(52, 63, 91, 0.3),
+    0 ${rm(4)} ${rm(12)} rgba(0, 0, 0, 0.15);
+  font-size: ${rm(14)};
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: ${rm(10)};
+  pointer-events: auto;
+  animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
+  min-width: ${rm(280)};
+  max-width: ${rm(400)};
+  
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes fadeOut {
+    to {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    min-width: auto;
+    max-width: 100%;
+    width: 100%;
+  }
+`;
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: ${rm(20)};
+  animation: fadeIn 0.2s ease;
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+`;
+
+const ModalContent = styled.div<{ $type?: "bonus" | "penalty" }>`
+  background: ${ui.card};
+  border: 2px solid ${({ $type }) => 
+    $type === "bonus" ? ui.success : $type === "penalty" ? ui.danger : ui.cardBorder};
+  border-radius: ${rm(20)};
+  padding: ${rm(32)};
+  max-width: ${rm(400)};
+  width: 100%;
+  box-shadow: 0 ${rm(24)} ${rm(48)} rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+  
+  @keyframes slideUp {
+    from {
+      transform: translateY(${rm(20)});
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+`;
+
+const ModalTitle = styled.h2<{ $type?: "bonus" | "penalty" }>`
+  margin: 0 0 ${rm(16)} 0;
+  font-size: ${rm(24)};
+  color: ${({ $type }) => 
+    $type === "bonus" ? ui.success : $type === "penalty" ? ui.danger : ui.text};
+  text-align: center;
+`;
+
+const ModalAmount = styled.div<{ $type?: "bonus" | "penalty" }>`
+  font-size: ${rm(48)};
+  font-weight: 700;
+  color: ${({ $type }) => 
+    $type === "bonus" ? ui.success : $type === "penalty" ? ui.danger : ui.text};
+  text-align: center;
+  margin: ${rm(16)} 0;
+`;
+
+const ModalReason = styled.p`
+  color: ${ui.muted};
+  font-size: ${rm(16)};
+  text-align: center;
+  margin: ${rm(16)} 0 0 0;
+`;
+
+const ModalButton = styled(Button)`
+  margin-top: ${rm(24)};
 `;
 
 const FieldShell = styled.div`
@@ -307,42 +503,150 @@ const DropdownOption = styled.button`
 
 const Calendar = styled.div`
   position: absolute;
-  top: calc(100% + ${rm(6)});
+  top: calc(100% + ${rm(8)});
   left: 0;
-  background: #fff;
+  right: 0;
+  background: linear-gradient(135deg, #ffffff, #f8f9ff);
   border: 1px solid ${ui.cardBorder};
-  border-radius: ${rm(16)};
-  box-shadow: 0 ${rm(16)} ${rm(36)} rgba(52, 63, 91, 0.16);
-  padding: ${rm(12)};
+  border-radius: ${rm(20)};
+  box-shadow: 0 ${rm(20)} ${rm(60)} rgba(52, 63, 91, 0.25),
+    0 ${rm(8)} ${rm(24)} rgba(63, 124, 255, 0.08);
+  padding: ${rm(16)};
   z-index: 12;
-  width: ${rm(280)};
+  width: 100%;
+  max-width: ${rm(320)};
+  animation: slideDown 0.2s ease-out;
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-${rm(10)});
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - ${rm(32)});
+  }
 `;
 
 const CalendarHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: ${rm(10)};
-  color: ${ui.text};
+  margin-bottom: ${rm(12)};
+  padding-bottom: ${rm(10)};
+  border-bottom: 2px solid ${ui.accentSoft};
+  
+  button {
+    width: ${rm(28)};
+    height: ${rm(28)};
+    border-radius: ${rm(8)};
+    border: 1px solid ${ui.cardBorder};
+    background: ${ui.card};
+    color: ${ui.text};
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: ${rm(14)};
+    font-weight: 600;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    
+    &:hover {
+      background: ${ui.accent};
+      color: #fff;
+      border-color: ${ui.accent};
+      transform: scale(1.05);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+  
+  strong {
+    font-size: ${rm(16)};
+    font-weight: 700;
+    color: ${ui.text};
+    letter-spacing: 0.02em;
+    flex: 1;
+    text-align: center;
+  }
 `;
 
 const CalendarGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: ${rm(6)};
+  gap: ${rm(4)};
+  margin-bottom: ${rm(6)};
+  
+  &:first-of-type {
+    margin-bottom: ${rm(4)};
+    
+    ${Helper} {
+      font-weight: 700;
+      color: ${ui.accent};
+      font-size: ${rm(11)};
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
 `;
 
 const DayCell = styled.button<{ $muted?: boolean; $selected?: boolean }>`
-  height: ${rm(34)};
+  aspect-ratio: 1;
+  min-height: ${rm(32)};
   border-radius: ${rm(10)};
-  border: none;
-  background: ${({ $selected }) => ($selected ? ui.accent : "transparent")};
+  border: 2px solid ${({ $selected }) => ($selected ? ui.accent : "transparent")};
+  background: ${({ $selected }) => 
+    $selected 
+      ? `linear-gradient(135deg, ${ui.accent}, #5a8eff)` 
+      : "transparent"};
   color: ${({ $selected, $muted }) =>
     $selected ? "#fff" : $muted ? ui.muted : ui.text};
   cursor: pointer;
+  font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
+  font-size: ${rm(13)};
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  
   &:hover {
-    background: ${({ $selected }) => ($selected ? ui.accent : ui.accentSoft)};
+    background: ${({ $selected }) => 
+      $selected 
+        ? `linear-gradient(135deg, ${ui.accent}, #5a8eff)` 
+        : ui.accentSoft};
+    border-color: ${({ $selected }) => ($selected ? ui.accent : ui.accent)};
+    transform: ${({ $selected }) => ($selected ? "scale(1.05)" : "scale(1.08)")};
+    box-shadow: ${({ $selected }) => 
+      $selected 
+        ? `0 ${rm(6)} ${rm(12)} rgba(63, 124, 255, 0.3)`
+        : `0 ${rm(3)} ${rm(8)} rgba(63, 124, 255, 0.15)`};
   }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  ${({ $muted, $selected }) => 
+    $muted && !$selected
+      ? `
+        opacity: 0.4;
+        &:hover {
+          opacity: 0.7;
+        }
+      `
+      : ""}
 `;
 
 const DateButton = styled(DropdownButton)`
@@ -361,8 +665,19 @@ export const HomeView = () => {
   const [dateTaskOpen, setDateTaskOpen] = useState(false);
   const [dateFinanceOpen, setDateFinanceOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: "success" | "error" | "info" }>>([]);
+  const [modalReward, setModalReward] = useState<{
+    type: "bonus" | "penalty";
+    reason: string | null;
+  } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  };
 
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -396,9 +711,10 @@ export const HomeView = () => {
       setHistory(historyRes.data);
       setFinanceState(stateRes.data);
 
-      setError(
-        tasksRes.error || financesRes.error || penaltiesRes.error || historyRes.error || stateRes.error
-      );
+      const loadError = tasksRes.error || financesRes.error || penaltiesRes.error || historyRes.error || stateRes.error;
+      if (loadError) {
+        showToast(loadError, "error");
+      }
       setLoading(false);
     };
 
@@ -448,21 +764,41 @@ export const HomeView = () => {
   ];
 
   const buildCalendar = (value: string) => {
-    const base = value ? new Date(value) : new Date();
+    let base: Date;
+    if (value && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // Парсим дату в локальном времени
+      const parts = value.split('-').map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        base = new Date(parts[0], parts[1] - 1, parts[2]);
+        // Проверяем, что дата валидна
+        if (isNaN(base.getTime())) {
+          base = new Date();
+        }
+      } else {
+        base = new Date();
+      }
+    } else {
+      base = new Date();
+    }
+    
     const year = base.getFullYear();
-    const month = base.getMonth();
+    const month = base.getMonth(); // 0-11
     const firstDay = new Date(year, month, 1);
     const startDay = firstDay.getDay() || 7; // make Monday = 1..Sunday=7
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const prevDays = new Date(year, month, 0).getDate();
 
     const cells = [];
+    // Дни предыдущего месяца
     for (let i = startDay - 2; i >= 0; i--) {
-      cells.push({ day: prevDays - i, muted: true, date: new Date(year, month - 1, prevDays - i) });
+      const day = prevDays - i;
+      cells.push({ day, muted: true, date: new Date(year, month - 1, day) });
     }
+    // Дни текущего месяца
     for (let d = 1; d <= daysInMonth; d++) {
       cells.push({ day: d, muted: false, date: new Date(year, month, d) });
     }
+    // Дни следующего месяца
     const tail = 42 - cells.length;
     for (let t = 1; t <= tail; t++) {
       cells.push({ day: t, muted: true, date: new Date(year, month + 1, t) });
@@ -470,12 +806,37 @@ export const HomeView = () => {
     return { cells, year, month };
   };
 
-  const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDateDisplay = (dateString: string) => {
+    if (!dateString) return '';
+    // Handle ISO string or YYYY-MM-DD format
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      // Try parsing as YYYY-MM-DD
+      const [year, month, day] = dateString.split('-').map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        const d = new Date(year, month - 1, day);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${dd}.${mm}.${yyyy}`;
+      }
+      return dateString;
+    }
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}.${mm}.${yyyy}`;
+  };
 
   const handleTaskSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setMessage(null);
-    setError(null);
 
     const { data, error: err } = await addTask({
       title: taskForm.title,
@@ -485,18 +846,16 @@ export const HomeView = () => {
       notes: taskForm.notes || null,
     });
 
-    if (err) return setError(err);
+    if (err) return showToast(err, "error");
     if (data) {
       setTasks((prev) => [data, ...prev]);
       setTaskForm({ title: "", due_date: "", notes: "" });
-      setMessage("Задача сохранена");
+      showToast("Задача сохранена", "success");
     }
   };
 
   const handleFinanceSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setMessage(null);
-    setError(null);
 
     const { data, error: err } = await addFinanceEntry({
       amount: Number(financeForm.amount),
@@ -506,7 +865,7 @@ export const HomeView = () => {
       task_id: null,
     });
 
-    if (err) return setError(err);
+    if (err) return showToast(err, "error");
     if (data) {
       setFinanceEntries((prev) => [data, ...prev]);
       setFinanceForm({
@@ -515,69 +874,59 @@ export const HomeView = () => {
         description: "",
         occurred_on: financeForm.occurred_on,
       });
-      setMessage("Запись сохранена");
+      
+      // Обновляем баланс и историю после добавления записи
+      const [historyRes, stateRes] = await Promise.all([
+        fetchFinanceHistory(),
+        fetchFinanceState(),
+      ]);
+      setHistory(historyRes.data);
+      setFinanceState(stateRes.data);
+      
+      showToast("Запись сохранена", "success");
     }
   };
 
   const toggleTaskStatus = async (task: Task) => {
-    const nextStatus: TaskStatus = task.status === "done" ? "pending" : "done";
-    if (nextStatus === "done") {
-      const { data, error: err } = await markTaskDoneWithAutoReward(task);
-      if (err) return setError(err);
-      if (data) {
-        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
-        setMessage("Статус изменён: готово. Бонус выбирается случайно из базы.");
+    const result = await markTaskDoneWithAutoReward(task);
+    if (result.error) return showToast(result.error, "error");
+    if (result.data) {
+      // Удаляем задачу из списка (не показываем выполненные)
+      setTasks((prev) => prev.filter((t) => t.id !== result.data!.id));
+      
+      // Обновляем баланс и историю после закрытия задачи (мог начислиться бонус/штраф)
+      const [historyRes, stateRes] = await Promise.all([
+        fetchFinanceHistory(),
+        fetchFinanceState(),
+      ]);
+      setHistory(historyRes.data);
+      setFinanceState(stateRes.data);
+      
+      // Показываем модальное окно, если есть бонус/штраф
+      if (result.reward) {
+        setModalReward(result.reward);
+      } else if (task.due_date) {
+        const now = new Date();
+        const due = new Date(task.due_date);
+        if (now > due) {
+          showToast("Задача просрочена, но в базе нет доступных штрафов. Добавьте штрафы в таблицу penalties.", "error");
+        } else {
+          showToast("Задача выполнена в срок, но в базе нет доступных бонусов. Добавьте бонусы в таблицу bonuses.", "error");
+        }
+      } else {
+        showToast("Задача отмечена как выполненная", "success");
       }
-      return;
-    }
-
-    const { data, error: err } = await updateTaskStatus(task.id, nextStatus);
-    if (err) return setError(err);
-    if (data) {
-      setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
-      setMessage("Статус изменён: в работе");
     }
   };
 
   return (
     <Page from={{ y: "-20rem" }} to={{ y: "0rem" }} delayIn={200}>
-      <Hero>
-        <HeroCard>
-          <HeroTitle>Финансы и задачи — в одном месте</HeroTitle>
-          <HeroText>
-            Ведите личные финансы, сроки задач, бонусы и штрафы. Всё хранится в Supabase, работает
-            на мобильных и десктопах, интерфейс на русском языке.
-          </HeroText>
-        </HeroCard>
-        <Grid>
-            <Card>
-              <TitleRow>
-                <SectionTitle>Баланс</SectionTitle>
-                <Badge>итоги</Badge>
-              </TitleRow>
-              <List>
-                <Row>
-                  <strong>Текущее значение</strong>
-                  <Tag $tone={totals.net >= 0 ? "success" : "danger"}>
-                    {totals.net >= 0 ? "+" : ""}
-                    {totals.net.toFixed(2)}
-                  </Tag>
-                </Row>
-              </List>
-            </Card>
-          <Card>
-            <TitleRow>
-              <SectionTitle>Скорость</SectionTitle>
-              <Badge>лайфхак</Badge>
-            </TitleRow>
-            <Helper>
-              • При закрытии задачи в срок приложение случайно выбирает бонус из таблицы bonuses. <br />
-              • При просрочке — случайный штраф из penalties. <br />
-              • Через интерфейс бонусы/штрафы не добавляются, заводите их в БД.
-            </Helper>
-          </Card>
-        </Grid>
-      </Hero>
+      <Card style={{ marginBottom: rm(24) }}>
+        <BalanceText $positive={totals.net >= 0}>
+          Баланс: {totals.net >= 0 ? "+" : ""}
+          {totals.net.toFixed(2)} Br
+        </BalanceText>
+      </Card>
 
       {supabaseMissing && (
         <Message $tone="error">
@@ -585,8 +934,6 @@ export const HomeView = () => {
           `NEXT_PUBLIC_SUPABASE_ANON_KEY` в `.env.local`, затем перезапустите dev-сервер.
         </Message>
       )}
-      {error && <Message $tone="error">{error}</Message>}
-      {message && <Message>{message}</Message>}
 
       {loading ? (
         <Message>Загрузка данных...</Message>
@@ -611,18 +958,34 @@ export const HomeView = () => {
                   setDateTaskOpen((v) => !v);
                   setDateFinanceOpen(false);
                 }}>
-                  {taskForm.due_date ? new Date(taskForm.due_date).toLocaleDateString() : "Выбрать дату"}
+                  {taskForm.due_date ? (() => {
+                    const [year, month, day] = taskForm.due_date.split('-').map(Number);
+                    const d = new Date(year, month - 1, day);
+                    return d.toLocaleDateString('ru-RU');
+                  })() : "Выбрать дату"}
                   <span>📅</span>
                 </DateButton>
                 {dateTaskOpen && (() => {
-                  const { cells, month, year } = buildCalendar(taskForm.due_date || new Date().toISOString());
+                  const { cells, month, year } = buildCalendar(taskForm.due_date || formatDate(new Date()));
                   const prev = () => {
-                    const d = taskForm.due_date ? new Date(taskForm.due_date) : new Date();
+                    let d: Date;
+                    if (taskForm.due_date) {
+                      const [year, month, day] = taskForm.due_date.split('-').map(Number);
+                      d = new Date(year, month - 1, day);
+                    } else {
+                      d = new Date();
+                    }
                     d.setMonth(d.getMonth() - 1);
                     setTaskForm((f) => ({ ...f, due_date: formatDate(d) }));
                   };
                   const next = () => {
-                    const d = taskForm.due_date ? new Date(taskForm.due_date) : new Date();
+                    let d: Date;
+                    if (taskForm.due_date) {
+                      const [year, month, day] = taskForm.due_date.split('-').map(Number);
+                      d = new Date(year, month - 1, day);
+                    } else {
+                      d = new Date();
+                    }
                     d.setMonth(d.getMonth() + 1);
                     setTaskForm((f) => ({ ...f, due_date: formatDate(d) }));
                   };
@@ -716,19 +1079,35 @@ export const HomeView = () => {
                   }}
                 >
                   {financeForm.occurred_on
-                    ? new Date(financeForm.occurred_on).toLocaleDateString()
+                    ? (() => {
+                        const [year, month, day] = financeForm.occurred_on.split('-').map(Number);
+                        const d = new Date(year, month - 1, day);
+                        return d.toLocaleDateString('ru-RU');
+                      })()
                     : "Выбрать дату"}
                   <span>📅</span>
                 </DateButton>
                 {dateFinanceOpen && (() => {
-                  const { cells, month, year } = buildCalendar(financeForm.occurred_on || new Date().toISOString());
+                  const { cells, month, year } = buildCalendar(financeForm.occurred_on || formatDate(new Date()));
                   const prev = () => {
-                    const d = new Date(financeForm.occurred_on || new Date());
+                    let d: Date;
+                    if (financeForm.occurred_on) {
+                      const [year, month, day] = financeForm.occurred_on.split('-').map(Number);
+                      d = new Date(year, month - 1, day);
+                    } else {
+                      d = new Date();
+                    }
                     d.setMonth(d.getMonth() - 1);
                     setFinanceForm((f) => ({ ...f, occurred_on: formatDate(d) }));
                   };
                   const next = () => {
-                    const d = new Date(financeForm.occurred_on || new Date());
+                    let d: Date;
+                    if (financeForm.occurred_on) {
+                      const [year, month, day] = financeForm.occurred_on.split('-').map(Number);
+                      d = new Date(year, month - 1, day);
+                    } else {
+                      d = new Date();
+                    }
                     d.setMonth(d.getMonth() + 1);
                     setFinanceForm((f) => ({ ...f, occurred_on: formatDate(d) }));
                   };
@@ -771,128 +1150,202 @@ export const HomeView = () => {
                 Сохранить запись
               </Button>
             </Card>
-
-            <Card>
-              <TitleRow>
-                <SectionTitle>Штрафы</SectionTitle>
-                <Badge>только авто / база</Badge>
-              </TitleRow>
-              <Helper>
-                Штрафы начисляются автоматически при просрочке задач с дедлайном и заполненным
-                штрафом, либо если вы заносите их вручную в БД (таблица penalties). Через интерфейс
-                добавить нельзя.
-              </Helper>
-            </Card>
           </Grid>
 
           <Grid>
             <Card>
               <TitleRow>
                 <SectionTitle>Задачи</SectionTitle>
-                <Badge>{tasks.length} шт.</Badge>
+                <Badge>{tasks.filter((t) => t.status !== "done").length} ШТ.</Badge>
               </TitleRow>
-              {tasks.length === 0 ? (
+              {tasks.filter((t) => t.status !== "done").length === 0 ? (
                 <Empty>Пока нет задач.</Empty>
               ) : (
-                <List>
-                  {tasks.map((task) => (
-                    <Card key={task.id}>
-                      <Row>
-                        <strong>{task.title}</strong>
-                        <Tag $tone={task.status === "done" ? "success" : "neutral"}>
-                          {task.status === "done" ? "готово" : "в работе"}
-                        </Tag>
-                      </Row>
-                      {task.due_date && (
-                        <Helper>Дедлайн: {new Date(task.due_date).toLocaleDateString()}</Helper>
-                      )}
-                      {task.notes && <Helper>{task.notes}</Helper>}
-                      <Button type="button" onClick={() => toggleTaskStatus(task)}>
-                        {task.status === "done" ? "Вернуть в работу" : "Отметить готово"}
-                      </Button>
-                    </Card>
-                  ))}
-                </List>
+                <ScrollableList
+                  onWheel={(e) => {
+                    const el = e.currentTarget;
+                    const { scrollTop, scrollHeight, clientHeight } = el;
+                    const isAtTop = scrollTop === 0;
+                    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                    
+                    if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+                      // На границе, позволяем скроллить страницу
+                      return;
+                    }
+                    
+                    // Внутри контейнера, останавливаем всплытие
+                    e.stopPropagation();
+                  }}
+                >
+                  {tasks
+                    .filter((t) => t.status !== "done")
+                    .map((task) => (
+                      <Card key={task.id}>
+                        <Row>
+                          <strong>{task.title}</strong>
+                        </Row>
+                        {task.due_date && (
+                          <Helper>Дедлайн: {formatDateDisplay(task.due_date)}</Helper>
+                        )}
+                        {task.notes && <Helper>{task.notes}</Helper>}
+                        <Button type="button" onClick={() => toggleTaskStatus(task)}>
+                          Отметить готово
+                        </Button>
+                      </Card>
+                    ))}
+                </ScrollableList>
               )}
             </Card>
 
             <Card>
               <TitleRow>
                 <SectionTitle>Финансовые записи</SectionTitle>
-                <Badge>{financeEntries.length} шт.</Badge>
+                <Badge>{financeEntries.length} ШТ.</Badge>
               </TitleRow>
               {financeEntries.length === 0 ? (
                 <Empty>Нет доходов или расходов.</Empty>
               ) : (
-                <List>
+                <ScrollableList
+                  onWheel={(e) => {
+                    const el = e.currentTarget;
+                    const { scrollTop, scrollHeight, clientHeight } = el;
+                    const isAtTop = scrollTop === 0;
+                    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                    
+                    if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+                      // На границе, позволяем скроллить страницу
+                      return;
+                    }
+                    
+                    // Внутри контейнера, останавливаем всплытие
+                    e.stopPropagation();
+                  }}
+                >
                   {financeEntries.map((entry) => (
                     <Card key={entry.id}>
                       <Row>
                         <strong>{entry.description || "Без описания"}</strong>
                         <Tag $tone={entry.category === "income" ? "success" : "danger"}>
                           {entry.category === "income" ? "+" : "-"}
-                          {Number(entry.amount).toFixed(2)}
+                          {Math.abs(Number(entry.amount)).toFixed(2)} Br
                         </Tag>
                       </Row>
-                      <Helper>{new Date(entry.occurred_on).toLocaleDateString()}</Helper>
+                      <Helper>{formatDateDisplay(entry.occurred_on)}</Helper>
                     </Card>
                   ))}
-                </List>
+                </ScrollableList>
               )}
             </Card>
 
             <Card>
               <TitleRow>
                 <SectionTitle>Бонусы (история)</SectionTitle>
-                <Badge>{history.filter((h) => h.kind === "bonus").length} шт.</Badge>
+                <Badge>{history.filter((h) => h.kind === "bonus").length} ШТ.</Badge>
               </TitleRow>
               {history.filter((h) => h.kind === "bonus").length === 0 ? (
                 <Empty>Бонусов пока нет.</Empty>
               ) : (
-                <List>
+                <ScrollableList
+                  onWheel={(e) => {
+                    const el = e.currentTarget;
+                    const { scrollTop, scrollHeight, clientHeight } = el;
+                    const isAtTop = scrollTop === 0;
+                    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                    
+                    if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+                      // На границе, позволяем скроллить страницу
+                      return;
+                    }
+                    
+                    // Внутри контейнера, останавливаем всплытие
+                    e.stopPropagation();
+                  }}
+                >
                   {history
                     .filter((h) => h.kind === "bonus")
                     .map((item) => (
                       <Card key={item.id}>
                         <Row>
                           <strong>Бонус</strong>
-                          <Tag $tone="success">+{Number(item.amount).toFixed(2)}</Tag>
                         </Row>
                         {item.description && <Helper>{item.description}</Helper>}
-                        {item.occurred_on && <Helper>{new Date(item.occurred_on).toLocaleString()}</Helper>}
+                        {item.occurred_on && <Helper>{formatDateDisplay(item.occurred_on.split('T')[0])}</Helper>}
                       </Card>
                     ))}
-                </List>
+                </ScrollableList>
               )}
             </Card>
 
             <Card>
               <TitleRow>
                 <SectionTitle>Штрафы (история)</SectionTitle>
-                <Badge>{history.filter((h) => h.kind === "penalty").length} шт.</Badge>
+                <Badge>{history.filter((h) => h.kind === "penalty").length} ШТ.</Badge>
               </TitleRow>
               {history.filter((h) => h.kind === "penalty").length === 0 ? (
                 <Empty>Штрафов пока нет.</Empty>
               ) : (
-                <List>
+                <ScrollableList
+                  onWheel={(e) => {
+                    const el = e.currentTarget;
+                    const { scrollTop, scrollHeight, clientHeight } = el;
+                    const isAtTop = scrollTop === 0;
+                    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                    
+                    if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+                      // На границе, позволяем скроллить страницу
+                      return;
+                    }
+                    
+                    // Внутри контейнера, останавливаем всплытие
+                    e.stopPropagation();
+                  }}
+                >
                   {history
                     .filter((h) => h.kind === "penalty")
                     .map((item) => (
                       <Card key={item.id}>
                         <Row>
                           <strong>Штраф</strong>
-                          <Tag $tone="danger">-{Number(item.amount).toFixed(2)}</Tag>
                         </Row>
                         {item.description && <Helper>{item.description}</Helper>}
-                        {item.occurred_on && <Helper>{new Date(item.occurred_on).toLocaleString()}</Helper>}
+                        {item.occurred_on && <Helper>{formatDateDisplay(item.occurred_on.split('T')[0])}</Helper>}
                       </Card>
                     ))}
-                </List>
+                </ScrollableList>
               )}
             </Card>
           </Grid>
         </>
       )}
+      
+      {modalReward && (
+        <ModalOverlay onClick={() => setModalReward(null)}>
+          <ModalContent
+            $type={modalReward.type}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalTitle $type={modalReward.type}>
+              {modalReward.type === "bonus" ? "🎉 Бонус начислен!" : "⚠️ Штраф начислен"}
+            </ModalTitle>
+            {modalReward.reason && (
+              <ModalReason>{modalReward.reason}</ModalReason>
+            )}
+            <ModalButton onClick={() => setModalReward(null)}>
+              Понятно
+            </ModalButton>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      <ToastContainer>
+        {toasts.map((toast) => (
+          <Toast key={toast.id} $type={toast.type}>
+            {toast.type === "success" && "✓ "}
+            {toast.type === "error" && "✕ "}
+            {toast.message}
+          </Toast>
+        ))}
+      </ToastContainer>
     </Page>
   );
 };

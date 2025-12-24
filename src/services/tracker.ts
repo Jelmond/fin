@@ -114,7 +114,19 @@ export const fetchFinanceHistory = async (): Promise<ServiceResult<FinanceHistor
     .order("created_at", { ascending: false });
 
   if (error) return { data: [], error: error.message };
-  return { data: data as FinanceHistoryEntry[], error: null };
+  
+  // Сортируем по occurred_on, если есть, иначе по created_at (новые сверху)
+  const sorted = (data as FinanceHistoryEntry[]).sort((a, b) => {
+    const dateA = a.occurred_on 
+      ? new Date(a.occurred_on).getTime() 
+      : (a.created_at ? new Date(a.created_at).getTime() : 0);
+    const dateB = b.occurred_on 
+      ? new Date(b.occurred_on).getTime() 
+      : (b.created_at ? new Date(b.created_at).getTime() : 0);
+    return dateB - dateA; // от новых к старым
+  });
+  
+  return { data: sorted, error: null };
 };
 
 export const fetchFinanceState = async (): Promise<ServiceResult<FinanceSnapshot | null>> => {
@@ -152,18 +164,24 @@ const pickRandomBonus = async (): Promise<Bonus | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
-  const { data, error } = await client.from("bonuses").select("*").order("random()").limit(1).single();
-  if (error || !data) return null;
-  return data as Bonus;
+  // Получаем все бонусы и выбираем случайный на клиенте
+  const { data, error } = await client.from("bonuses").select("*");
+  if (error || !data || data.length === 0) return null;
+  
+  const randomIndex = Math.floor(Math.random() * data.length);
+  return data[randomIndex] as Bonus;
 };
 
 const pickRandomPenalty = async (): Promise<Penalty | null> => {
   const client = getSupabaseClient();
   if (!client) return null;
 
-  const { data, error } = await client.from("penalties").select("*").order("random()").limit(1).single();
-  if (error || !data) return null;
-  return data as Penalty;
+  // Получаем все штрафы и выбираем случайный на клиенте
+  const { data, error } = await client.from("penalties").select("*");
+  if (error || !data || data.length === 0) return null;
+  
+  const randomIndex = Math.floor(Math.random() * data.length);
+  return data[randomIndex] as Penalty;
 };
 
 export const fetchTasks = async (): Promise<ServiceResult<Task[]>> => {
@@ -220,52 +238,85 @@ export const updateTaskStatus = async (
   return { data: data as Task, error: null };
 };
 
-export const markTaskDoneWithAutoReward = async (task: Task) => {
+type TaskDoneResult = {
+  data: Task | null;
+  error: string | null;
+  reward?: {
+    type: "bonus" | "penalty";
+    reason: string | null;
+  } | null;
+};
+
+export const markTaskDoneWithAutoReward = async (task: Task): Promise<TaskDoneResult> => {
   const now = new Date();
   const due = task.due_date ? new Date(task.due_date) : null;
 
   const result = await updateTaskStatus(task.id, "done");
-  if (result.error || !result.data) return result;
+  if (result.error || !result.data) {
+    return { ...result, reward: null };
+  }
+
+  let reward: TaskDoneResult["reward"] = null;
 
   if (due) {
     if (now <= due) {
+      // Задача выполнена в срок - выбираем случайный бонус
       const randomBonus = await pickRandomBonus();
       if (randomBonus) {
+        // Привязываем бонус к задаче
+        const client = getSupabaseClient();
+        if (client) {
+          await client
+            .from("bonuses")
+            .update({ task_id: task.id })
+            .eq("id", randomBonus.id);
+        }
+        
         await recordHistory({
           kind: "bonus",
-          amount: Number(randomBonus.amount),
+          amount: 0,
           description: randomBonus.reason
             ? `Случайный бонус: ${randomBonus.reason}`
             : "Случайный бонус",
           occurred_on: new Date().toISOString(),
           task_id: task.id,
         });
-        await applyDeltaToState({
-          balance: Number(randomBonus.amount),
-          bonuses_total: Number(randomBonus.amount),
-        });
+        reward = {
+          type: "bonus",
+          reason: randomBonus.reason ?? null,
+        };
       }
     } else if (now > due) {
+      // Задача просрочена - выбираем случайный штраф
       const randomPenalty = await pickRandomPenalty();
       if (randomPenalty) {
+        // Привязываем штраф к задаче
+        const client = getSupabaseClient();
+        if (client) {
+          await client
+            .from("penalties")
+            .update({ task_id: task.id })
+            .eq("id", randomPenalty.id);
+        }
+        
         await recordHistory({
           kind: "penalty",
-          amount: Number(randomPenalty.amount),
+          amount: 0,
           description: randomPenalty.reason
             ? `Случайный штраф: ${randomPenalty.reason}`
             : "Случайный штраф",
           occurred_on: new Date().toISOString(),
           task_id: task.id,
         });
-        await applyDeltaToState({
-          balance: -Number(randomPenalty.amount),
-          penalties_total: Number(randomPenalty.amount),
-        });
+        reward = {
+          type: "penalty",
+          reason: randomPenalty.reason ?? null,
+        };
       }
     }
   }
 
-  return result;
+  return { ...result, reward };
 };
 
 export const fetchFinanceEntries = async (): Promise<ServiceResult<FinanceEntry[]>> => {
@@ -275,10 +326,24 @@ export const fetchFinanceEntries = async (): Promise<ServiceResult<FinanceEntry[
   const { data, error } = await client
     .from("finance_entries")
     .select("*")
-    .order("occurred_on", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) return { data: [], error: error.message };
-  return { data: data as FinanceEntry[], error: null };
+  
+  // Сортируем по occurred_on (дата события), затем по created_at (новые сверху)
+  const sorted = (data as FinanceEntry[]).sort((a, b) => {
+    const dateA = new Date(a.occurred_on).getTime();
+    const dateB = new Date(b.occurred_on).getTime();
+    if (dateB !== dateA) {
+      return dateB - dateA; // по дате события (новые сверху)
+    }
+    // Если даты одинаковые, сортируем по created_at
+    const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return createdB - createdA; // новые сверху
+  });
+  
+  return { data: sorted, error: null };
 };
 
 export const addFinanceEntry = async (
