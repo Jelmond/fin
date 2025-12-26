@@ -1528,7 +1528,7 @@ export const HomeView = () => {
                           }}
                           style={{ fontWeight: 600, color: ui.accent }}
                         >
-                          + Создать "{newTagInput.trim()}"
+                          + Создать &quot;{newTagInput.trim()}&quot;
                         </AutocompleteItem>
                       )}
                     </AutocompleteDropdown>
