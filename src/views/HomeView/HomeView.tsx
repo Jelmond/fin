@@ -10,6 +10,7 @@ import { Inview } from "@/components/Springs/Inview";
 import {
   addFinanceEntry,
   addTask,
+  fetchAllTags,
   fetchFinanceEntries,
   fetchFinanceHistory,
   fetchFinanceState,
@@ -25,6 +26,7 @@ import {
   Penalty,
   Task,
   TaskStatus,
+  type Tag,
 } from "@/types/tracker";
 import { hasSupabaseConfig } from "@/lib/supabaseClient";
 
@@ -292,6 +294,233 @@ const Pill = styled.span`
 const Empty = styled.div`
   color: ${ui.muted};
   font-size: ${rm(14)};
+`;
+
+const TagsContainer = styled.div`
+  margin-bottom: ${rm(12)};
+`;
+
+const TagsList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${rm(8)};
+  margin-bottom: ${rm(8)};
+`;
+
+const TagChip = styled.button<{ $selected?: boolean }>`
+  padding: ${rm(6)} ${rm(12)};
+  border-radius: ${rm(16)};
+  border: 1px solid ${({ $selected }) => ($selected ? ui.accent : ui.cardBorder)};
+  background: ${({ $selected }) => ($selected ? ui.accent : ui.card)};
+  color: ${({ $selected }) => ($selected ? "#fff" : ui.text)};
+  font-size: ${rm(12)};
+  font-weight: ${({ $selected }) => ($selected ? 600 : 500)};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: ${ui.accent};
+    transform: translateY(-1px);
+    box-shadow: 0 ${rm(2)} ${rm(8)} rgba(63, 124, 255, 0.2);
+  }
+`;
+
+const TagInputWrapper = styled.div`
+  position: relative;
+  margin-bottom: ${rm(8)};
+`;
+
+const PieChartContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: ${rm(32)};
+  width: 100%;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: center;
+    gap: ${rm(24)};
+  }
+`;
+
+const PieChartWrapper = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+`;
+
+const PieChartSvg = styled.svg`
+  width: ${rm(400)};
+  height: ${rm(400)};
+  flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    width: ${rm(300)};
+    height: ${rm(300)};
+  }
+`;
+
+const PieChartLegend = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: ${rm(8)};
+  min-width: 0;
+  max-height: ${rm(400)};
+  overflow-y: auto;
+  
+  &::-webkit-scrollbar {
+    width: ${rm(6)};
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${ui.cardBorder};
+    border-radius: ${rm(3)};
+    
+    &:hover {
+      background: ${ui.muted};
+    }
+  }
+`;
+
+const Tooltip = styled.div<{ $x: number; $y: number; $visible: boolean }>`
+  position: absolute;
+  left: ${({ $x }) => $x}px;
+  top: ${({ $y }) => $y}px;
+  background: ${ui.text};
+  color: #fff;
+  padding: ${rm(8)} ${rm(12)};
+  border-radius: ${rm(8)};
+  font-size: ${rm(13)};
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+  transform: translate(-50%, -100%) translateY(${({ $visible }) => ($visible ? rm(-8) : 0)});
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 ${rm(4)} ${rm(12)} rgba(0, 0, 0, 0.2);
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: ${rm(6)} solid transparent;
+    border-top-color: ${ui.text};
+  }
+`;
+
+const LegendItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${rm(10)};
+  padding: ${rm(8)} ${rm(12)};
+  border-radius: ${rm(8)};
+  background: ${ui.card};
+  border: 1px solid ${ui.cardBorder};
+`;
+
+const LegendColor = styled.div<{ $color: string }>`
+  width: ${rm(16)};
+  height: ${rm(16)};
+  border-radius: ${rm(4)};
+  background: ${({ $color }) => $color};
+  flex-shrink: 0;
+`;
+
+const LegendText = styled.div`
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: ${rm(8)};
+  font-size: ${rm(13)};
+  color: ${ui.text};
+`;
+
+const LegendName = styled.span`
+  font-weight: 500;
+`;
+
+const LegendValue = styled.span`
+  font-weight: 700;
+  color: ${ui.accent};
+`;
+
+const TagInput = styled.input`
+  width: 100%;
+  background: #fff;
+  border: 1px solid ${ui.cardBorder};
+  border-radius: ${rm(12)};
+  padding: ${rm(10)} ${rm(12)};
+  color: ${ui.text};
+  font-size: ${rm(13)};
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+  
+  &:focus {
+    outline: none;
+    border: 1px solid ${ui.accent};
+    box-shadow: 0 0 ${rm(14)} rgba(63, 124, 255, 0.2);
+  }
+`;
+
+const AutocompleteDropdown = styled.div`
+  position: absolute;
+  top: calc(100% + ${rm(4)});
+  left: 0;
+  right: 0;
+  background: ${ui.card};
+  border: 1px solid ${ui.cardBorder};
+  border-radius: ${rm(12)};
+  box-shadow: 0 ${rm(8)} ${rm(24)} rgba(52, 63, 91, 0.15);
+  max-height: ${rm(200)};
+  overflow-y: auto;
+  z-index: 10;
+  animation: slideDown 0.2s ease-out;
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-${rm(10)});
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const AutocompleteItem = styled.button`
+  width: 100%;
+  padding: ${rm(10)} ${rm(12)};
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: ${ui.text};
+  font-size: ${rm(13)};
+  cursor: pointer;
+  transition: background 0.2s ease;
+  
+  &:hover {
+    background: ${ui.accentSoft};
+  }
+  
+  &:first-child {
+    border-radius: ${rm(12)} ${rm(12)} 0 0;
+  }
+  
+  &:last-child {
+    border-radius: 0 0 ${rm(12)} ${rm(12)};
+  }
 `;
 
 const Message = styled.div<{ $tone?: "info" | "error" }>`
@@ -689,7 +918,17 @@ export const HomeView = () => {
     amount: "",
     category: "expense",
     description: "",
+    tags: [] as string[],
     occurred_on: new Date().toISOString().slice(0, 10),
+  });
+
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string; visible: boolean }>({
+    x: 0,
+    y: 0,
+    text: "",
+    visible: false,
   });
 
   const supabaseMissing = !hasSupabaseConfig();
@@ -697,21 +936,23 @@ export const HomeView = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-    const [tasksRes, financesRes, penaltiesRes, historyRes, stateRes] = await Promise.all([
-        fetchTasks(),
-        fetchFinanceEntries(),
-        fetchPenalties(),
-        fetchFinanceHistory(),
-        fetchFinanceState(),
-      ]);
+    const [tasksRes, financesRes, penaltiesRes, historyRes, stateRes, tagsRes] = await Promise.all([
+      fetchTasks(),
+      fetchFinanceEntries(),
+      fetchPenalties(),
+      fetchFinanceHistory(),
+      fetchFinanceState(),
+      fetchAllTags(),
+    ]);
 
       setTasks(tasksRes.data);
       setFinanceEntries(financesRes.data);
       setPenalties(penaltiesRes.data);
       setHistory(historyRes.data);
       setFinanceState(stateRes.data);
+      setAvailableTags(tagsRes.data);
 
-      const loadError = tasksRes.error || financesRes.error || penaltiesRes.error || historyRes.error || stateRes.error;
+      const loadError = tasksRes.error || financesRes.error || penaltiesRes.error || historyRes.error || stateRes.error || tagsRes.error;
       if (loadError) {
         showToast(loadError, "error");
       }
@@ -720,6 +961,30 @@ export const HomeView = () => {
 
     load();
   }, []);
+
+  // Calculate expenses by tags
+  const tagExpenses = useMemo(() => {
+    const tagMap = new Map<string, number>();
+    
+    financeEntries
+      .filter((entry) => entry.category === "expense" && entry.tags && entry.tags.length > 0)
+      .forEach((entry) => {
+        entry.tags!.forEach((tag) => {
+          const current = tagMap.get(tag.name) || 0;
+          tagMap.set(tag.name, current + Math.abs(entry.amount));
+        });
+      });
+    
+    const total = Array.from(tagMap.values()).reduce((sum, val) => sum + val, 0);
+    
+    return Array.from(tagMap.entries())
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percentage: total > 0 ? (amount / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [financeEntries]);
 
   const totals = useMemo(() => {
     if (financeState) {
@@ -813,6 +1078,60 @@ export const HomeView = () => {
     return `${year}-${month}-${day}`;
   };
 
+  // Generate colors for pie chart
+  const generateColors = (count: number): string[] => {
+    const colors = [
+      ui.accent,
+      ui.success,
+      "#ff6b6b",
+      "#4ecdc4",
+      "#ffe66d",
+      "#a8e6cf",
+      "#ff8b94",
+      "#95e1d3",
+      "#f38181",
+      "#aa96da",
+    ];
+    return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+  };
+
+  // Calculate pie chart paths with colors
+  const pieChartData = useMemo(() => {
+    if (tagExpenses.length === 0) return [];
+    
+    const colors = generateColors(tagExpenses.length);
+    const centerX = 150;
+    const centerY = 150;
+    const radius = 110;
+    let currentAngle = -90; // Start from top
+    
+    return tagExpenses.map((item, index) => {
+      const angle = (item.percentage / 100) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      
+      const startAngleRad = (startAngle * Math.PI) / 180;
+      const endAngleRad = (endAngle * Math.PI) / 180;
+      
+      const x1 = centerX + radius * Math.cos(startAngleRad);
+      const y1 = centerY + radius * Math.sin(startAngleRad);
+      const x2 = centerX + radius * Math.cos(endAngleRad);
+      const y2 = centerY + radius * Math.sin(endAngleRad);
+      
+      const largeArcFlag = angle > 180 ? 1 : 0;
+      
+      const path = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+      
+      currentAngle += angle;
+      
+      return {
+        path,
+        color: colors[index],
+        ...item,
+      };
+    });
+  }, [tagExpenses]);
+
   const formatDateDisplay = (dateString: string) => {
     if (!dateString) return '';
     // Handle ISO string or YYYY-MM-DD format
@@ -861,6 +1180,7 @@ export const HomeView = () => {
       amount: Number(financeForm.amount),
       category: financeForm.category as FinanceEntry["category"],
       description: financeForm.description || null,
+      tagNames: financeForm.tags.length > 0 ? financeForm.tags : undefined,
       occurred_on: financeForm.occurred_on,
       task_id: null,
     });
@@ -868,12 +1188,19 @@ export const HomeView = () => {
     if (err) return showToast(err, "error");
     if (data) {
       setFinanceEntries((prev) => [data, ...prev]);
+      // Обновляем список тегов после добавления записи
+      const tagsRes = await fetchAllTags();
+      if (tagsRes.data) {
+        setAvailableTags(tagsRes.data);
+      }
       setFinanceForm({
         amount: "",
         category: financeForm.category,
         description: "",
+        tags: [],
         occurred_on: financeForm.occurred_on,
       });
+      setNewTagInput("");
       
       // Обновляем баланс и историю после добавления записи
       const [historyRes, stateRes] = await Promise.all([
@@ -1146,6 +1473,118 @@ export const HomeView = () => {
                 onChange={(e) => setFinanceForm({ ...financeForm, description: e.target.value })}
                 placeholder="Пример: зарплата, еда, подписки"
               />
+              <Label>Теги</Label>
+              <TagsContainer>
+                <TagInputWrapper>
+                  <TagInput
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newTagInput.trim()) {
+                        e.preventDefault();
+                        const tagName = newTagInput.trim();
+                        if (!financeForm.tags.includes(tagName)) {
+                          setFinanceForm({ ...financeForm, tags: [...financeForm.tags, tagName] });
+                        }
+                        setNewTagInput("");
+                      }
+                    }}
+                    placeholder="Введите тег или выберите из списка"
+                  />
+                  {newTagInput.trim() && (
+                    <AutocompleteDropdown>
+                      {availableTags
+                        .filter((tag) => 
+                          tag.name.toLowerCase().includes(newTagInput.toLowerCase()) &&
+                          !financeForm.tags.includes(tag.name)
+                        )
+                        .slice(0, 5)
+                        .map((tag) => (
+                          <AutocompleteItem
+                            key={tag.id}
+                            type="button"
+                            onClick={() => {
+                              if (!financeForm.tags.includes(tag.name)) {
+                                setFinanceForm({ ...financeForm, tags: [...financeForm.tags, tag.name] });
+                              }
+                              setNewTagInput("");
+                            }}
+                          >
+                            {tag.name}
+                          </AutocompleteItem>
+                        ))}
+                      {!availableTags.some((tag) => 
+                        tag.name.toLowerCase() === newTagInput.toLowerCase()
+                      ) && newTagInput.trim() && (
+                        <AutocompleteItem
+                          type="button"
+                          onClick={() => {
+                            const tagName = newTagInput.trim();
+                            if (!financeForm.tags.includes(tagName)) {
+                              setFinanceForm({ ...financeForm, tags: [...financeForm.tags, tagName] });
+                            }
+                            setNewTagInput("");
+                          }}
+                          style={{ fontWeight: 600, color: ui.accent }}
+                        >
+                          + Создать "{newTagInput.trim()}"
+                        </AutocompleteItem>
+                      )}
+                    </AutocompleteDropdown>
+                  )}
+                </TagInputWrapper>
+                {availableTags.length > 0 && (
+                  <>
+                    <Helper style={{ marginBottom: rm(8), fontSize: rm(12), color: ui.muted }}>
+                      Доступные теги (кликните для выбора):
+                    </Helper>
+                    <TagsList>
+                      {availableTags
+                        .filter((tag) => !financeForm.tags.includes(tag.name))
+                        .map((tag) => (
+                          <TagChip
+                            key={tag.id}
+                            type="button"
+                            $selected={false}
+                            onClick={() => {
+                              setFinanceForm({
+                                ...financeForm,
+                                tags: [...financeForm.tags, tag.name],
+                              });
+                            }}
+                          >
+                            {tag.name}
+                          </TagChip>
+                        ))}
+                    </TagsList>
+                  </>
+                )}
+                {financeForm.tags.length > 0 && (
+                  <>
+                    <Helper style={{ marginTop: rm(12), marginBottom: rm(8), fontSize: rm(12), color: ui.muted }}>
+                      Выбранные теги:
+                    </Helper>
+                    <TagsList>
+                      {financeForm.tags.map((tag) => (
+                        <TagChip
+                          key={tag}
+                          type="button"
+                          $selected={true}
+                          onClick={() => {
+                            setFinanceForm({
+                              ...financeForm,
+                              tags: financeForm.tags.filter((t) => t !== tag),
+                            });
+                          }}
+                        >
+                          {tag} ×
+                        </TagChip>
+                      ))}
+                    </TagsList>
+                  </>
+                )}
+              </TagsContainer>
               <Button type="submit" disabled={!financeForm.amount}>
                 Сохранить запись
               </Button>
@@ -1230,13 +1669,102 @@ export const HomeView = () => {
                           {Math.abs(Number(entry.amount)).toFixed(2)} Br
                         </Tag>
                       </Row>
+                      {entry.tags && entry.tags.length > 0 && (
+                        <TagsList style={{ marginTop: rm(8), marginBottom: rm(4) }}>
+                          {entry.tags.map((tag) => (
+                            <TagChip key={tag.id} $selected={false} style={{ cursor: "default", pointerEvents: "none" }}>
+                              {tag.name}
+                            </TagChip>
+                          ))}
+                        </TagsList>
+                      )}
                       <Helper>{formatDateDisplay(entry.occurred_on)}</Helper>
                     </Card>
                   ))}
                 </ScrollableList>
               )}
             </Card>
+          </Grid>
 
+          {tagExpenses.length > 0 && (
+            <Card>
+              <TitleRow>
+                <SectionTitle>Расходы по тегам</SectionTitle>
+                <Badge>{tagExpenses.length} ТЕГ.</Badge>
+              </TitleRow>
+              <PieChartContainer>
+                <PieChartWrapper
+                  data-pie-wrapper
+                  onMouseLeave={() => {
+                    setTooltip({ ...tooltip, visible: false });
+                  }}
+                >
+                  <PieChartSvg viewBox="0 0 300 300">
+                    {pieChartData.map((item, index) => (
+                      <path
+                        key={index}
+                        d={item.path}
+                        fill={item.color}
+                        stroke="#fff"
+                        strokeWidth="2"
+                        style={{
+                          transition: "opacity 0.3s ease",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = "0.8";
+                          const wrapper = e.currentTarget.closest('[data-pie-wrapper]') as HTMLElement;
+                          if (wrapper) {
+                            const rect = wrapper.getBoundingClientRect();
+                            setTooltip({
+                              x: e.clientX - rect.left,
+                              y: e.clientY - rect.top,
+                              text: `${item.name}: ${item.percentage.toFixed(1)}% (${item.amount.toFixed(2)} Br)`,
+                              visible: true,
+                            });
+                          }
+                        }}
+                        onMouseMove={(e) => {
+                          const wrapper = e.currentTarget.closest('[data-pie-wrapper]') as HTMLElement;
+                          if (wrapper) {
+                            const rect = wrapper.getBoundingClientRect();
+                            setTooltip({
+                              x: e.clientX - rect.left,
+                              y: e.clientY - rect.top,
+                              text: `${item.name}: ${item.percentage.toFixed(1)}% (${item.amount.toFixed(2)} Br)`,
+                              visible: true,
+                            });
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = "1";
+                          setTooltip({ ...tooltip, visible: false });
+                        }}
+                      />
+                    ))}
+                  </PieChartSvg>
+                  <Tooltip $x={tooltip.x} $y={tooltip.y} $visible={tooltip.visible}>
+                    {tooltip.text}
+                  </Tooltip>
+                </PieChartWrapper>
+                <PieChartLegend>
+                  {pieChartData.map((item, index) => (
+                    <LegendItem key={index}>
+                      <LegendColor $color={item.color} />
+                      <LegendText>
+                        <LegendName>{item.name}</LegendName>
+                        <LegendValue>
+                          {item.percentage.toFixed(1)}% ({item.amount.toFixed(2)} Br)
+                        </LegendValue>
+                      </LegendText>
+                    </LegendItem>
+                  ))}
+                </PieChartLegend>
+              </PieChartContainer>
+            </Card>
+          )}
+
+          <Grid>
             <Card>
               <TitleRow>
                 <SectionTitle>Бонусы (история)</SectionTitle>

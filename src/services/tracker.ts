@@ -5,6 +5,7 @@ import {
   FinanceHistoryEntry,
   FinanceSnapshot,
   Penalty,
+  Tag,
   Task,
   TaskStatus,
 } from "@/types/tracker";
@@ -325,13 +326,24 @@ export const fetchFinanceEntries = async (): Promise<ServiceResult<FinanceEntry[
 
   const { data, error } = await client
     .from("finance_entries")
-    .select("*")
+    .select(`
+      *,
+      tags:finance_entry_tags(
+        tag:tags(*)
+      )
+    `)
     .order("created_at", { ascending: false });
 
   if (error) return { data: [], error: error.message };
   
+  // Transform data to flatten tags structure
+  const transformed = (data as any[]).map((entry) => {
+    const tags = (entry.tags as any[])?.map((t: any) => t.tag).filter(Boolean) || [];
+    return { ...entry, tags } as FinanceEntry;
+  });
+  
   // Сортируем по occurred_on (дата события), затем по created_at (новые сверху)
-  const sorted = (data as FinanceEntry[]).sort((a, b) => {
+  const sorted = transformed.sort((a, b) => {
     const dateA = new Date(a.occurred_on).getTime();
     const dateB = new Date(b.occurred_on).getTime();
     if (dateB !== dateA) {
@@ -346,13 +358,52 @@ export const fetchFinanceEntries = async (): Promise<ServiceResult<FinanceEntry[
   return { data: sorted, error: null };
 };
 
+export const fetchAllTags = async (): Promise<ServiceResult<Tag[]>> => {
+  const client = getSupabaseClient();
+  if (!client) return missingConfigResult<Tag[]>([]);
+
+  const { data, error } = await client
+    .from("tags")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) return { data: [], error: error.message };
+  return { data: data as Tag[], error: null };
+};
+
+export const createTag = async (name: string): Promise<ServiceResult<Tag | null>> => {
+  const client = getSupabaseClient();
+  if (!client) return missingConfigResult<Tag | null>(null);
+
+  const { data, error } = await client
+    .from("tags")
+    .insert({ name: name.trim() })
+    .select()
+    .single();
+
+  if (error) {
+    // If tag already exists, return it
+    if (error.code === "23505") {
+      const { data: existing } = await client
+        .from("tags")
+        .select("*")
+        .eq("name", name.trim())
+        .single();
+      return { data: existing as Tag, error: null };
+    }
+    return { data: null, error: error.message };
+  }
+  return { data: data as Tag, error: null };
+};
+
 export const addFinanceEntry = async (
-  payload: Omit<FinanceEntry, "id" | "created_at">
+  payload: Omit<FinanceEntry, "id" | "created_at" | "tags"> & { tagNames?: string[] }
 ): Promise<ServiceResult<FinanceEntry | null>> => {
   const client = getSupabaseClient();
   if (!client) return missingConfigResult<FinanceEntry | null>(null);
 
-  const { data, error } = await client
+  // Create finance entry
+  const { data: entry, error } = await client
     .from("finance_entries")
     .insert({
       amount: payload.amount,
@@ -365,6 +416,29 @@ export const addFinanceEntry = async (
     .single();
 
   if (error) return { data: null, error: error.message };
+  if (!entry) return { data: null, error: "Failed to create entry" };
+
+  // Create tags and link them
+  if (payload.tagNames && payload.tagNames.length > 0) {
+    for (const tagName of payload.tagNames) {
+      if (!tagName.trim()) continue;
+      
+      // Get or create tag
+      const tagResult = await createTag(tagName.trim());
+      if (tagResult.data) {
+        // Link tag to entry (ignore duplicate errors)
+        const { error: linkError } = await client.from("finance_entry_tags").insert({
+          finance_entry_id: entry.id,
+          tag_id: tagResult.data.id,
+        });
+        // Silently ignore duplicate constraint errors
+        if (linkError && linkError.code !== "23505") {
+          console.warn("Failed to link tag:", linkError);
+        }
+      }
+    }
+  }
+
   await recordHistory({
     kind: payload.category,
     amount: payload.amount,
@@ -377,7 +451,25 @@ export const addFinanceEntry = async (
     income_total: payload.category === "income" ? payload.amount : 0,
     expense_total: payload.category === "expense" ? payload.amount : 0,
   });
-  return { data: data as FinanceEntry, error: null };
+
+  // Fetch entry with tags
+  const { data: entryWithTags } = await client
+    .from("finance_entries")
+    .select(`
+      *,
+      tags:finance_entry_tags(
+        tag:tags(*)
+      )
+    `)
+    .eq("id", entry.id)
+    .single();
+
+  if (entryWithTags) {
+    const tags = (entryWithTags.tags as any[])?.map((t: any) => t.tag) || [];
+    return { data: { ...entryWithTags, tags } as FinanceEntry, error: null };
+  }
+
+  return { data: entry as FinanceEntry, error: null };
 };
 
 export const fetchBonuses = async (): Promise<ServiceResult<Bonus[]>> => {
@@ -402,7 +494,6 @@ export const addBonus = async (
   const { data, error } = await client
     .from("bonuses")
     .insert({
-      amount: payload.amount,
       reason: payload.reason ?? null,
       task_id: payload.task_id ?? null,
     })
@@ -412,14 +503,10 @@ export const addBonus = async (
   if (error) return { data: null, error: error.message };
   await recordHistory({
     kind: "bonus",
-    amount: payload.amount,
+    amount: 0,
     description: payload.reason ?? null,
     occurred_on: new Date().toISOString(),
     task_id: payload.task_id ?? null,
-  });
-  await applyDeltaToState({
-    balance: payload.amount,
-    bonuses_total: payload.amount,
   });
   return { data: data as Bonus, error: null };
 };
@@ -446,7 +533,6 @@ export const addPenalty = async (
   const { data, error } = await client
     .from("penalties")
     .insert({
-      amount: payload.amount,
       reason: payload.reason ?? null,
       task_id: payload.task_id ?? null,
     })
@@ -456,14 +542,10 @@ export const addPenalty = async (
   if (error) return { data: null, error: error.message };
   await recordHistory({
     kind: "penalty",
-    amount: payload.amount,
+    amount: 0,
     description: payload.reason ?? null,
     occurred_on: new Date().toISOString(),
     task_id: payload.task_id ?? null,
-  });
-  await applyDeltaToState({
-    balance: -payload.amount,
-    penalties_total: payload.amount,
   });
   return { data: data as Penalty, error: null };
 };

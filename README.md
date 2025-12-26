@@ -34,11 +34,24 @@ create table if not exists finance_entries (
   task_id uuid references tasks(id)
 );
 
+create table if not exists tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz default now()
+);
+
+create table if not exists finance_entry_tags (
+  id uuid primary key default gen_random_uuid(),
+  finance_entry_id uuid not null references finance_entries(id) on delete cascade,
+  tag_id uuid not null references tags(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique(finance_entry_id, tag_id)
+);
+
 create table if not exists bonuses (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
   task_id uuid references tasks(id),
-  amount numeric not null,
   reason text
 );
 
@@ -46,7 +59,6 @@ create table if not exists penalties (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz default now(),
   task_id uuid references tasks(id),
-  amount numeric not null,
   reason text
 );
 
@@ -72,6 +84,39 @@ create table if not exists finance_state (
 
 insert into finance_state (id) values ('current')
 on conflict (id) do nothing;
+```
+
+**Migration for existing databases:**
+
+If you already have the database set up, run these migration SQL commands in Supabase:
+
+```sql
+-- Remove amount column from bonuses table
+ALTER TABLE bonuses DROP COLUMN IF EXISTS amount;
+
+-- Remove amount column from penalties table
+ALTER TABLE penalties DROP COLUMN IF EXISTS amount;
+
+-- Create tags table
+CREATE TABLE IF NOT EXISTS tags (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Create junction table for many-to-many relationship
+CREATE TABLE IF NOT EXISTS finance_entry_tags (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  finance_entry_id uuid NOT NULL REFERENCES finance_entries(id) ON DELETE CASCADE,
+  tag_id uuid NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(finance_entry_id, tag_id)
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_finance_entry_tags_entry_id ON finance_entry_tags(finance_entry_id);
+CREATE INDEX IF NOT EXISTS idx_finance_entry_tags_tag_id ON finance_entry_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 ```
 
 2) Add environment variables to `.env.local`:

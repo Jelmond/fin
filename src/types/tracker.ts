@@ -11,6 +11,12 @@ export type Task = {
   created_at?: string;
 };
 
+export type Tag = {
+  id: string;
+  name: string;
+  created_at?: string;
+};
+
 export type FinanceEntry = {
   id: string;
   amount: number;
@@ -19,6 +25,7 @@ export type FinanceEntry = {
   occurred_on: string;
   task_id?: string | null;
   created_at?: string;
+  tags?: Tag[]; // Populated via join
 };
 
 export type FinanceHistoryEntry = {
@@ -44,7 +51,6 @@ export type FinanceSnapshot = {
 export type Bonus = {
   id: string;
   task_id?: string | null;
-  amount: number;
   reason?: string | null;
   created_at?: string;
 };
@@ -52,7 +58,6 @@ export type Bonus = {
 export type Penalty = {
   id: string;
   task_id?: string | null;
-  amount: number;
   reason?: string | null;
   created_at?: string;
 };
